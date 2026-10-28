@@ -1,0 +1,51 @@
+rules_version = '2';
+
+// =====================================================================
+//  EXTENSÃO (Desafio Extra Nível 3) — regras com autenticação
+// =====================================================================
+//  Use estas regras SOMENTE depois de adicionar o Firebase Authentication
+//  ao app (pacote firebase_auth + tela de login).
+//
+//  - Qualquer pessoa pode LER os locais.
+//  - Cadastrar, editar, favoritar e excluir exigem usuário autenticado.
+// =====================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function autenticado() {
+      return request.auth != null;
+    }
+
+    function camposDoLocal() {
+      return ['nome', 'categoria', 'cidade', 'avaliacao', 'distancia',
+              'horario', 'descricao', 'favorito'];
+    }
+
+    function localValido(dados) {
+      return dados.keys().hasOnly(camposDoLocal())
+          && dados.keys().hasAll(camposDoLocal())
+          && dados.nome is string
+          && dados.nome.size() > 0 && dados.nome.size() <= 80
+          && dados.categoria is string && dados.categoria.size() <= 40
+          && dados.cidade is string && dados.cidade.size() <= 40
+          && dados.avaliacao is number
+          && dados.avaliacao >= 0 && dados.avaliacao <= 5
+          && dados.distancia is number && dados.distancia >= 0
+          && dados.horario is string && dados.horario.size() <= 20
+          && dados.descricao is string && dados.descricao.size() <= 500
+          && dados.favorito is bool;
+    }
+
+    match /locais/{localId} {
+      allow read: if true;
+      allow create, update: if autenticado()
+                            && localValido(request.resource.data);
+      allow delete: if autenticado();
+    }
+
+    match /{documento=**} {
+      allow read, write: if false;
+    }
+  }
+}

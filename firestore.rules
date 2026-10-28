@@ -1,0 +1,66 @@
+rules_version = '2';
+
+// =====================================================================
+//  Regras de segurança do Cloud Firestore — projeto mapa_locais
+// =====================================================================
+//  Copie este conteúdo em: Firebase Console > Firestore Database > Regras
+//  e clique em "Publicar".
+//
+//  O que estas regras fazem (seção 25 da avaliação):
+//   - Só a coleção "locais" pode ser acessada; qualquer outra é bloqueada.
+//   - Todo documento gravado precisa ter EXATAMENTE os 8 campos do Model,
+//     com os tipos corretos e valores dentro de limites (nota 0 a 5, etc.).
+//   - Um local novo sempre nasce com favorito = false.
+//   - Ninguém consegue gravar campos extras, textos gigantes ou tipos errados.
+//
+//  Versão com autenticação (Desafio Extra Nível 3): ver o arquivo
+//  firestore_com_autenticacao.rules
+// =====================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function camposDoLocal() {
+      return ['nome', 'categoria', 'cidade', 'avaliacao', 'distancia',
+              'horario', 'descricao', 'favorito'];
+    }
+
+    function localValido(dados) {
+      return dados.keys().hasOnly(camposDoLocal())
+          && dados.keys().hasAll(camposDoLocal())
+          && dados.nome is string
+          && dados.nome.size() > 0 && dados.nome.size() <= 80
+          && dados.categoria is string
+          && dados.categoria.size() > 0 && dados.categoria.size() <= 40
+          && dados.cidade is string
+          && dados.cidade.size() > 0 && dados.cidade.size() <= 40
+          && dados.avaliacao is number
+          && dados.avaliacao >= 0 && dados.avaliacao <= 5
+          && dados.distancia is number
+          && dados.distancia >= 0 && dados.distancia <= 1000
+          && dados.horario is string && dados.horario.size() <= 20
+          && dados.descricao is string && dados.descricao.size() <= 500
+          && dados.favorito is bool;
+    }
+
+    match /locais/{localId} {
+      // READ
+      allow read: if true;
+
+      // CREATE
+      allow create: if localValido(request.resource.data)
+                    && request.resource.data.favorito == false;
+
+      // UPDATE (edição completa ou só o favorito)
+      allow update: if localValido(request.resource.data);
+
+      // DELETE (o app sempre pede confirmação antes)
+      allow delete: if true;
+    }
+
+    // Qualquer outra coleção fica fechada.
+    match /{documento=**} {
+      allow read, write: if false;
+    }
+  }
+}
